@@ -11,7 +11,8 @@ export function useExecutiveSnapshot() {
   const [error, setError] = useState<Error | undefined>();
 
   const load = useCallback(async (forceRefresh = false) => {
-    forceRefresh ? setRefreshing(true) : setLoading(true);
+    if (forceRefresh) setRefreshing(true);
+    else setLoading(true);
     setError(undefined);
     try {
       const result = await invoke<ExecutiveSnapshot>('executive.snapshot', { forceRefresh });

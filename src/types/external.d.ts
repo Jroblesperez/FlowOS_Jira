@@ -62,8 +62,8 @@ declare module '@forge/kvs' {
   };
 }
 declare module '@storybook/react' {
-  export type Meta<T> = unknown;
-  export type StoryObj<T> = { args?: unknown };
+  export type Meta<T> = { component?: T; [key: string]: unknown };
+  export type StoryObj<T> = { args?: unknown; componentType?: T };
 }
 declare module '@vitejs/plugin-react' {
   export default function react(): unknown;
