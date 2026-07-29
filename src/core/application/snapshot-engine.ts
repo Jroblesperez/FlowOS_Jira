@@ -94,8 +94,7 @@ export class SnapshotEngine {
     let issues: JiraIssue[] | undefined;
     let activeSprints: number | undefined;
     let activeSprint:
-      | { id: number; name: string; startDate?: string; endDate?: string }
-      | undefined;
+      { id: number; name: string; startDate?: string; endDate?: string } | undefined;
     let boardFound = false;
     const [issueResult, boardResult] = await Promise.allSettled([
       this.jira.searchIssues({

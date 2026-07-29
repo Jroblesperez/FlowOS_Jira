@@ -39,12 +39,10 @@ export class ConfigurationService {
       errors.pilotProjectKey = 'Pilot project key must be a valid Jira project key.';
     if (!Number.isInteger(config.pilotBoardId) || config.pilotBoardId <= 0)
       errors.pilotBoardId = 'Pilot board ID must be a positive integer.';
-    if (
-      !(
-        config.healthThresholds.healthy > config.healthThresholds.warning &&
-        config.healthThresholds.warning > config.healthThresholds.critical
-      )
-    )
+    if (!(
+      config.healthThresholds.healthy > config.healthThresholds.warning &&
+      config.healthThresholds.warning > config.healthThresholds.critical
+    ))
       errors.healthThresholds = 'Thresholds must descend from healthy to warning to critical.';
     if (!config.workingDays.length) errors.workingDays = 'Select at least one working day.';
     if (config.businessHours.start >= config.businessHours.end)
