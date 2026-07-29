@@ -1,0 +1,42 @@
+{
+  "name": "agile-command-center",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Enterprise Agile Operating System for Jira Cloud built on Atlassian Forge.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "test": "vitest run",
+    "format": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"*.{json,yml,ts,mjs}\" \".storybook/*.ts\"",
+    "storybook": "storybook dev -p 6006",
+    "build:storybook": "storybook build"
+  },
+  "dependencies": {
+    "@forge/api": "latest",
+    "@forge/bridge": "latest",
+    "@forge/kvs": "latest",
+    "@forge/resolver": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@storybook/react-vite": "latest",
+    "@testing-library/react": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@typescript-eslint/eslint-plugin": "latest",
+    "@typescript-eslint/parser": "latest",
+    "@vitejs/plugin-react": "latest",
+    "eslint": "latest",
+    "eslint-config-prettier": "latest",
+    "jsdom": "latest",
+    "prettier": "latest",
+    "storybook": "latest",
+    "typescript": "latest",
+    "vite": "latest",
+    "vitest": "latest"
+  }
+}
