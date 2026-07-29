@@ -1,3 +1,5 @@
+import type { JiraDiagnostic } from '../domain/executive';
+
 export interface JiraSearchRequest {
   jql: string;
   fields: string[];
@@ -24,5 +26,5 @@ export interface JiraClient {
   getCurrentUserTenant(): Promise<string>;
   getBoard(boardId: number): Promise<JiraBoard>;
   getActiveSprints(boardId: number): Promise<JiraSprint[]>;
-  getDiagnostics(): import('../domain/executive').JiraDiagnostic[];
+  getDiagnostics(): JiraDiagnostic[];
 }
