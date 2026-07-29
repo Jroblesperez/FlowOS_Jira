@@ -1,4 +1,9 @@
-import type { ExecutiveSnapshot, SnapshotFailure, SnapshotSection } from '../domain/executive';
+import type {
+  ExecutiveSnapshot,
+  SectionAvailability,
+  SnapshotFailure,
+  SnapshotSection,
+} from '../domain/executive';
 import type { JiraIssue, JiraClient } from '../ports/jira-client';
 import type { ExecutiveStorage } from '../ports/executive-storage';
 import { consoleLogger, type Logger } from '../ports/logger';
@@ -9,6 +14,16 @@ import { HealthScoringService } from './health-scoring-service';
 import { SupplierHealthService } from './supplier-health-service';
 
 const SNAPSHOT_VERSION = 2 as const;
+const emptyCoverage = { evaluated: 0, availableFields: [], missingFields: [] };
+const unavailable = (
+  status: SectionAvailability['status'],
+  reason: string,
+): SectionAvailability => ({
+  status,
+  confidence: 'insufficient_data',
+  reason,
+  coverage: emptyCoverage,
+});
 
 export class SnapshotEngine {
   private refreshAttempt = 0;
@@ -54,15 +69,37 @@ export class SnapshotEngine {
     let jiraRequestCount = 0;
     const capture = (section: SnapshotSection, error: unknown) => {
       const message = error instanceof Error ? error.message : 'Unknown service failure';
-      failures.push({ section, message, occurredAt: new Date().toISOString() });
-      this.logger.error('snapshot.section_failed', { section, message });
+      const diagnostic =
+        error && typeof error === 'object' && 'diagnostic' in error
+          ? (error as { diagnostic?: ReturnType<JiraClient['getDiagnostics']>[number] }).diagnostic
+          : this.jira.getDiagnostics().slice(-1)[0];
+      failures.push({
+        section,
+        message,
+        occurredAt: new Date().toISOString(),
+        operation: diagnostic?.operation,
+        endpoint: diagnostic?.endpoint,
+        httpStatus: diagnostic?.httpStatus,
+        source: diagnostic?.source,
+      });
+      this.logger.error('snapshot.section_failed', {
+        section,
+        message,
+        operation: diagnostic?.operation,
+        endpoint: diagnostic?.endpoint,
+        httpStatus: diagnostic?.httpStatus,
+      });
     };
 
     let issues: JiraIssue[] | undefined;
     let activeSprints: number | undefined;
-    const [issueResult, sprintResult] = await Promise.allSettled([
+    let activeSprint:
+      | { id: number; name: string; startDate?: string; endDate?: string }
+      | undefined;
+    let boardFound = false;
+    const [issueResult, boardResult] = await Promise.allSettled([
       this.jira.searchIssues({
-        jql: 'updated >= -30d ORDER BY updated DESC',
+        jql: `project = ${config.pilotProjectKey} ORDER BY updated DESC`,
         fields: [
           'status',
           'resolutiondate',
@@ -72,33 +109,46 @@ export class SnapshotEngine {
           'components',
           'project',
           'labels',
+          'customfield_10064',
         ],
-        maxResults: 10000,
+        maxResults: 500,
+        projectKey: config.pilotProjectKey,
       }),
-      this.jira.countActiveSprints(),
+      this.jira.getBoard(config.pilotBoardId),
     ]);
     jiraRequestCount += 2;
     if (issueResult.status === 'fulfilled') issues = issueResult.value;
     else capture('jira', issueResult.reason);
-    if (sprintResult.status === 'fulfilled') activeSprints = sprintResult.value;
-    else capture('jira', sprintResult.reason);
+    if (boardResult.status === 'fulfilled') {
+      boardFound = true;
+      const sprintResult = await Promise.allSettled([
+        this.jira.getActiveSprints(config.pilotBoardId),
+      ]);
+      jiraRequestCount += 1;
+      if (sprintResult[0].status === 'fulfilled') {
+        activeSprints = sprintResult[0].value.length;
+        activeSprint = sprintResult[0].value[0];
+      } else capture('jira', sprintResult[0].reason);
+    } else capture('jira', boardResult.reason);
 
     let deliveryHealth = latest?.deliveryHealth;
     let supplierHealth = latest?.supplierHealth;
     if (issues && activeSprints !== undefined) {
       try {
-        deliveryHealth = this.delivery.calculate(issues, activeSprints);
+        deliveryHealth = this.delivery.calculate(issues, activeSprints, activeSprint);
       } catch (error) {
         capture('delivery', error);
       }
     } else if (!deliveryHealth) capture('delivery', new Error('Delivery inputs are unavailable.'));
-    if (issues) {
+    const configuredSuppliers = config.suppliers.filter((supplier) => supplier.accountIds.length);
+    if (issues && configuredSuppliers.length) {
       try {
-        supplierHealth = this.supplier.calculate(issues, config.suppliers);
+        supplierHealth = this.supplier.calculate(issues, configuredSuppliers);
       } catch (error) {
         capture('supplier', error);
       }
-    } else if (!supplierHealth) capture('supplier', new Error('Supplier inputs are unavailable.'));
+    } else if (!configuredSuppliers.length) supplierHealth = undefined;
+    else if (!supplierHealth) capture('supplier', new Error('Supplier inputs are unavailable.'));
 
     let organizationHealth = latest?.organizationHealth;
     if (deliveryHealth && supplierHealth) {
@@ -133,6 +183,64 @@ export class SnapshotEngine {
     } else if (!aiSummary) capture('brief', new Error('Brief inputs are unavailable.'));
 
     const now = new Date();
+    const diagnostics = this.jira.getDiagnostics();
+    const issueCoverage = issues
+      ? {
+          evaluated: issues.length,
+          expected: issues.length,
+          percentage: 100,
+          availableFields: ['status', 'created'],
+          missingFields: issues.some((issue) => issue.fields.customfield_10064 === undefined)
+            ? ['Story Points']
+            : [],
+        }
+      : emptyCoverage;
+    const availability: Record<SnapshotSection, SectionAvailability> = {
+      jira: failures.some((failure) => failure.section === 'jira')
+        ? unavailable('source_error', 'One or more Jira pilot operations failed.')
+        : {
+            status: issues?.length ? 'available' : 'evaluated_no_findings',
+            confidence: issues?.length ? 'medium' : 'low',
+            coverage: issueCoverage,
+          },
+      delivery: deliveryHealth
+        ? failures.some((failure) => failure.section === 'jira')
+          ? {
+              status: 'partial_coverage',
+              confidence: 'low',
+              reason: 'Using the latest reliable delivery result after a Jira source failure.',
+              coverage: issueCoverage,
+            }
+          : {
+              status: deliveryHealth.storyPointsCoverage < 100 ? 'partial_coverage' : 'available',
+              confidence: deliveryHealth.confidence,
+              coverage: issueCoverage,
+            }
+        : failures.some((failure) => failure.section === 'jira')
+          ? unavailable('source_error', 'Board, sprint, or issue data is unavailable.')
+          : unavailable('insufficient_data', 'No issues were available for evaluation.'),
+      supplier: configuredSuppliers.length
+        ? supplierHealth?.length
+          ? {
+              status: failures.some((failure) => failure.section === 'jira')
+                ? 'partial_coverage'
+                : 'available',
+              confidence: failures.some((failure) => failure.section === 'jira') ? 'low' : 'medium',
+              coverage: issueCoverage,
+            }
+          : unavailable('insufficient_data', 'No pilot issues matched configured suppliers.')
+        : unavailable('not_configured', 'Map Jira users to suppliers in Configuration.'),
+      organization: organizationHealth
+        ? {
+            status: failures.length ? 'partial_coverage' : 'available',
+            confidence: failures.length ? 'low' : 'medium',
+            coverage: issueCoverage,
+          }
+        : unavailable('insufficient_data', 'Delivery and supplier inputs are required.'),
+      brief: aiSummary
+        ? { status: 'available', confidence: 'medium', coverage: issueCoverage }
+        : unavailable('insufficient_data', 'Executive brief inputs are incomplete.'),
+    };
     const expiresAt = new Date(
       now.getTime() + config.refreshFrequencyMinutes * 60000,
     ).toISOString();
@@ -148,13 +256,24 @@ export class SnapshotEngine {
       expiresAt,
       metadata: {
         version: SNAPSHOT_VERSION,
-        status: failures.length ? 'partial' : 'complete',
+        status:
+          failures.length ||
+          Object.values(availability).some(
+            (section) =>
+              section.status !== 'available' && section.status !== 'evaluated_no_findings',
+          )
+            ? 'partial'
+            : 'complete',
         source: 'refresh',
         generatedAt: now.toISOString(),
         expiresAt,
         durationMs: Date.now() - startedAt,
         jiraRequestCount,
         failures,
+        availability,
+        diagnostics,
+        issueCount: issues?.length ?? 0,
+        boardCount: boardFound ? 1 : 0,
         refresh: {
           attempt: this.refreshAttempt,
           cacheHits: this.cacheHits,

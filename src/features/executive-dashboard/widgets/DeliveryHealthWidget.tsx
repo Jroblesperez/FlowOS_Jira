@@ -29,7 +29,7 @@ export const DeliveryHealthWidget = memo(function DeliveryHealthWidget({
           title="Overall Delivery"
           score={health.score}
           status={health.status}
-          trend={health.velocityTrend}
+          trend={`${health.confidence} confidence`}
           description="Current delivery reliability and execution flow."
           icon="↗"
         />
@@ -40,9 +40,9 @@ export const DeliveryHealthWidget = memo(function DeliveryHealthWidget({
             detail="Currently in progress"
           />
           <TrendCard
-            label="Success rate"
-            value={`${health.sprintSuccessRate}%`}
-            detail="Completed work ratio"
+            label="Completion ratio"
+            value={`${health.completionRate}%`}
+            detail={`${health.completedIssues} of ${health.issueCount} issues completed`}
           />
           <TrendCard
             label="Blocked work"
@@ -50,14 +50,18 @@ export const DeliveryHealthWidget = memo(function DeliveryHealthWidget({
             detail="Requires intervention"
           />
           <TrendCard
-            label="Cycle time"
-            value={`${health.averageCycleTimeDays}d`}
-            detail={`Lead time ${health.averageLeadTimeDays}d`}
+            label="WIP aging"
+            value={`${health.averageWipAgeDays}d`}
+            detail={`Cycle time ${
+              health.averageCycleTimeDays === undefined
+                ? 'Unknown'
+                : `${health.averageCycleTimeDays}d`
+            }`}
           />
           <TrendCard
-            label="Flow efficiency"
-            value={`${health.flowEfficiency}%`}
-            detail={`Velocity ${health.velocityTrend}`}
+            label="Story points coverage"
+            value={`${health.storyPointsCoverage}%`}
+            detail={`Throughput ${health.throughput} · WIP ${health.workInProgress}`}
           />
         </div>
       </div>

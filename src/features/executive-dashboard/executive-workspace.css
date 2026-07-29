@@ -500,3 +500,27 @@ select {
     flex-direction: column;
   }
 }
+.diagnostics-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.diagnostic-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid #dcdfe4;
+  border-radius: 8px;
+}
+
+.diagnostic-row div {
+  display: grid;
+  gap: 4px;
+}
+
+.diagnostic-row code,
+.diagnostic-row small {
+  color: #44546f;
+}

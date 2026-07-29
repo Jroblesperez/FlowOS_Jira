@@ -21,10 +21,11 @@ function daysBetween(start?: string, end?: string): number {
 
 export class SupplierHealthService {
   calculate(issues: JiraIssue[], suppliers: SupplierConfiguration[]): SupplierHealth[] {
-    return suppliers.map((supplier) => {
+    return suppliers.flatMap((supplier) => {
       const supplierIssues = issues.filter((issue) =>
         supplier.accountIds.includes(accountId(issue)),
       );
+      if (!supplierIssues.length) return [];
       const completed = supplierIssues.filter((issue) => Boolean(issue.fields.resolutiondate));
       const blockedIssues = supplierIssues.filter((issue) =>
         status(issue).toLowerCase().includes('block'),
@@ -46,16 +47,18 @@ export class SupplierHealthService {
       const score = clampScore(
         100 - blockedIssues * 10 - openRisks * 8 - Math.max(0, averageResolutionTimeDays - 7) * 2,
       );
-      return {
-        supplier: supplier.name,
-        score,
-        status: toHealthStatus(score),
-        resources: supplier.accountIds.length,
-        openRisks,
-        blockedIssues,
-        averageResolutionTimeDays,
-        currentCapacity: supplier.capacity,
-      };
+      return [
+        {
+          supplier: supplier.name,
+          score,
+          status: toHealthStatus(score),
+          resources: supplier.accountIds.length,
+          openRisks,
+          blockedIssues,
+          averageResolutionTimeDays,
+          currentCapacity: supplier.capacity,
+        },
+      ];
     });
   }
 }

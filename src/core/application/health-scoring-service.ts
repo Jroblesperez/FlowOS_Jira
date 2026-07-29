@@ -28,14 +28,13 @@ export class HealthScoringService {
     weights: HealthScoreWeights,
     thresholds = defaultThresholds,
   ): OrganizationHealth {
+    if (!suppliers.length) throw new Error('Supplier health is not configured.');
     const supplierAverage =
-      suppliers.length === 0
-        ? 100
-        : suppliers.reduce((total, supplier) => total + supplier.score, 0) / suppliers.length;
+      suppliers.reduce((total, supplier) => total + supplier.score, 0) / suppliers.length;
     const riskScore = clampScore(
       100 -
         delivery.blockedIssues * 5 -
-        suppliers.reduce((total, supplier) => total + supplier.openRisks * 3, 0),
+        suppliers.reduce((total, supplier) => total + supplier.blockedIssues * 3, 0),
     );
     const result = this.calculator.calculate(
       [

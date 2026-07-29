@@ -5,8 +5,10 @@ import { EmptyState } from '../../../frontend/components/WorkspaceStates';
 
 export const ActionCenterWidget = memo(function ActionCenterWidget({
   recommendations,
+  evaluated,
 }: {
   recommendations: ExecutiveRecommendation[];
+  evaluated: boolean;
 }) {
   const [dismissed, setDismissed] = useState<string[]>([]);
   const dismiss = useCallback((id: string) => setDismissed((current) => [...current, id]), []);
@@ -27,7 +29,9 @@ export const ActionCenterWidget = memo(function ActionCenterWidget({
               <div className="action-priority">
                 <span className={`priority priority-${action.priority}`}>{action.priority}</span>
                 <span>{action.category}</span>
-                <span>{action.confidence}% confidence</span>
+                {action.confidence === undefined ? null : (
+                  <span>{action.confidence}% confidence</span>
+                )}
               </div>
               <h3>{action.title}</h3>
               <p>{action.businessImpact}</p>
@@ -50,10 +54,15 @@ export const ActionCenterWidget = memo(function ActionCenterWidget({
             </RecommendationCard>
           ))}
         </div>
-      ) : (
+      ) : evaluated ? (
         <EmptyState
           title="Inbox clear"
           description="There are no open executive actions requiring attention."
+        />
+      ) : (
+        <EmptyState
+          title="Decisions could not be evaluated"
+          description="The pilot data source did not provide enough reliable evidence."
         />
       )}
     </section>

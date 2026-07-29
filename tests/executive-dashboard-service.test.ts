@@ -12,7 +12,9 @@ it('builds and persists an executive snapshot', async () => {
       { key: 'ACC-1', fields: { status: 'Done', priority: 'High' } },
       { key: 'ACC-2', fields: { status: 'In Progress', priority: 'Low' } },
     ],
-    countActiveSprints: async () => 1,
+    getBoard: async () => ({ id: 140, name: 'Pays Genius' }),
+    getActiveSprints: async () => [{ id: 1, name: 'Sprint', state: 'active' }],
+    getDiagnostics: () => [],
   };
   const repo: SnapshotRepository = {
     save: async () => {

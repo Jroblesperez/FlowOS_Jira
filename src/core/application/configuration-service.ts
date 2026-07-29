@@ -35,6 +35,10 @@ export class ConfigurationService {
     if (weightTotal !== 100) errors.healthScoreWeights = 'Health weights must total 100.';
     if (config.refreshFrequencyMinutes < 5 || config.refreshFrequencyMinutes > 1440)
       errors.refreshFrequencyMinutes = 'Refresh frequency must be between 5 and 1440 minutes.';
+    if (!/^[A-Z][A-Z0-9_]+$/.test(config.pilotProjectKey))
+      errors.pilotProjectKey = 'Pilot project key must be a valid Jira project key.';
+    if (!Number.isInteger(config.pilotBoardId) || config.pilotBoardId <= 0)
+      errors.pilotBoardId = 'Pilot board ID must be a positive integer.';
     if (
       !(
         config.healthThresholds.healthy > config.healthThresholds.warning &&

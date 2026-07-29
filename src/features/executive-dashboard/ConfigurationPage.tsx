@@ -2,11 +2,13 @@ import type { ReactNode } from 'react';
 import type { ExecutiveConfiguration } from '../../core/domain/executive';
 import { ErrorState, LoadingState } from '../../frontend/components/WorkspaceStates';
 import { useExecutiveConfiguration } from './hooks/useExecutiveConfiguration';
+import { useJiraDiagnostics } from './hooks/useJiraDiagnostics';
 import './executive-workspace.css';
 
 type InputEvent = { currentTarget: { value: string } };
 
 export function ConfigurationPage() {
+  const diagnostics = useJiraDiagnostics();
   const {
     configuration,
     setConfiguration,
@@ -52,6 +54,60 @@ export function ConfigurationPage() {
           void save();
         }}
       >
+        <ConfigurationSection title="Jira Connection & Diagnostics">
+          <p className="field-help">
+            Pilot scope: {configuration.pilotProjectKey} · Board {configuration.pilotBoardId}
+          </p>
+          {diagnostics.error ? <p className="field-error">{diagnostics.error}</p> : null}
+          {diagnostics.loading ? (
+            <p className="field-help">Loading the latest pilot diagnostics…</p>
+          ) : diagnostics.metadata ? (
+            <>
+              <div className="score-preview">
+                <p className="eyebrow">Latest snapshot</p>
+                <strong>{diagnostics.metadata.status}</strong>
+                <span>
+                  {diagnostics.metadata.issueCount ?? 0} issues ·{' '}
+                  {diagnostics.metadata.boardCount ?? 0} board
+                </span>
+              </div>
+              <div className="diagnostics-list">
+                {(diagnostics.metadata.diagnostics ?? []).map((item) => (
+                  <article key={`${item.operation}-${item.timestamp}`} className="diagnostic-row">
+                    <div>
+                      <strong>{item.operation}</strong>
+                      <code>
+                        {item.method} {item.endpoint}
+                      </code>
+                    </div>
+                    <div>
+                      <span>
+                        {item.httpStatus ?? 'No status'} · {item.result}
+                      </span>
+                      <span>
+                        {item.itemCount ?? 0} items · {item.durationMs} ms
+                      </span>
+                      <small>
+                        {item.safeMessage ??
+                          `Last success ${item.lastSuccessfulAt ?? item.timestamp}`}
+                      </small>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="field-help">No snapshot diagnostics are available yet.</p>
+          )}
+          <button
+            type="button"
+            className="button button-subtle"
+            disabled={diagnostics.retrying}
+            onClick={() => void diagnostics.retry()}
+          >
+            {diagnostics.retrying ? 'Retrying…' : 'Retry pilot diagnostics'}
+          </button>
+        </ConfigurationSection>
         <ConfigurationSection title="Organization">
           <Field label="Organization name" error={validation.errors.organizationName}>
             <input

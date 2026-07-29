@@ -34,6 +34,8 @@ const issues = [
 
 it('calculates delivery health from Jira work data', () => {
   const result = new DeliveryHealthService().calculate(issues, 2);
+  expect(result).toBeDefined();
+  if (!result) throw new Error('Expected delivery health');
   expect(result.activeSprints).toBe(2);
   expect(result.blockedIssues).toBe(1);
   expect(result.teamAtRisk).toBe('Payments');
@@ -49,7 +51,7 @@ it('calculates supplier health from manual supplier mapping', () => {
 });
 
 it('calculates organization health with configurable weights', () => {
-  const delivery = new DeliveryHealthService().calculate(issues, 1);
+  const delivery = new DeliveryHealthService().calculate(issues, 1)!;
   const suppliers = new SupplierHealthService().calculate(issues, [
     { name: 'SOFKA', accountIds: ['b'], capacity: 3 },
   ]);
@@ -62,7 +64,7 @@ it('calculates organization health with configurable weights', () => {
 });
 
 it('generates concise executive brief without Jira terminology', () => {
-  const delivery = new DeliveryHealthService().calculate(issues, 1);
+  const delivery = new DeliveryHealthService().calculate(issues, 1)!;
   const suppliers = new SupplierHealthService().calculate(issues, [
     { name: 'SOFKA', accountIds: ['b'], capacity: 3 },
   ]);
@@ -81,7 +83,9 @@ it('stores and reuses fresh executive snapshots', async () => {
   let searchCalls = 0;
   const jira: JiraClient = {
     getCurrentUserTenant: async () => 'tenant',
-    countActiveSprints: async () => 1,
+    getBoard: async () => ({ id: 140, name: 'Pays Genius' }),
+    getActiveSprints: async () => [{ id: 1, name: 'Sprint', state: 'active' }],
+    getDiagnostics: () => [],
     searchIssues: async () => {
       searchCalls += 1;
       return issues;

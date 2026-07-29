@@ -15,7 +15,12 @@ function fieldText(value: unknown): string {
 }
 
 export class DeliveryHealthService {
-  calculate(issues: JiraIssue[], activeSprints: number): DeliveryHealth {
+  calculate(
+    issues: JiraIssue[],
+    activeSprints: number,
+    sprint?: DeliveryHealth['sprint'],
+  ): DeliveryHealth | undefined {
+    if (!issues.length) return undefined;
     const completed = issues.filter(
       (issue) =>
         fieldText(issue.fields.status).toLowerCase().includes('done') ||
@@ -26,9 +31,6 @@ export class DeliveryHealthService {
         fieldText(issue.fields.status).toLowerCase().includes('block') ||
         fieldText(issue.fields.labels).toLowerCase().includes('blocked'),
     );
-    const risks = issues.filter((issue) =>
-      fieldText(issue.fields.priority).toLowerCase().includes('high'),
-    );
     const leadTimes = completed
       .map((issue) =>
         daysBetween(String(issue.fields.created ?? ''), String(issue.fields.resolutiondate ?? '')),
@@ -37,23 +39,26 @@ export class DeliveryHealthService {
     const averageLeadTimeDays = leadTimes.length
       ? Number((leadTimes.reduce((a, b) => a + b, 0) / leadTimes.length).toFixed(1))
       : 0;
-    const averageCycleTimeDays = averageLeadTimeDays
-      ? Number(Math.max(1, averageLeadTimeDays * 0.7).toFixed(1))
+    const completionRate = Math.round((completed.length / issues.length) * 100);
+    const inProgress = issues.filter((issue) => {
+      const value = fieldText(issue.fields.status).toLowerCase();
+      return !completed.includes(issue) && !value.includes('to do');
+    });
+    const ages = inProgress
+      .map((issue) => daysBetween(String(issue.fields.created ?? ''), new Date().toISOString()))
+      .filter(Boolean);
+    const averageWipAgeDays = ages.length
+      ? Number((ages.reduce((a, b) => a + b, 0) / ages.length).toFixed(1))
       : 0;
-    const sprintSuccessRate = issues.length
-      ? Math.round((completed.length / issues.length) * 100)
-      : 100;
-    const flowEfficiency = averageLeadTimeDays
-      ? clampScore((averageCycleTimeDays / averageLeadTimeDays) * 100)
-      : 100;
+    const storyPointCount = issues.filter((issue) =>
+      Number.isFinite(Number(issue.fields.customfield_10064)),
+    ).length;
+    const storyPointsCoverage = Math.round((storyPointCount / issues.length) * 100);
     const score = clampScore(
-      sprintSuccessRate * 0.4 +
-        flowEfficiency * 0.25 +
-        Math.max(0, 100 - blocked.length * 8) * 0.25 +
-        Math.max(0, 100 - risks.length * 5) * 0.1,
+      completionRate * 0.6 + Math.max(0, 100 - (blocked.length / issues.length) * 100) * 0.4,
     );
     const teamCounts = new Map<string, number>();
-    for (const issue of blocked.concat(risks)) {
+    for (const issue of blocked) {
       const team =
         fieldText(issue.fields.components) || fieldText(issue.fields.project) || 'Unassigned team';
       teamCounts.set(team, (teamCounts.get(team) ?? 0) + 1);
@@ -64,13 +69,19 @@ export class DeliveryHealthService {
       score,
       status: toHealthStatus(score),
       activeSprints,
-      sprintSuccessRate,
+      completionRate,
       blockedIssues: blocked.length,
-      averageCycleTimeDays,
+      inProgressIssues: inProgress.length,
+      completedIssues: completed.length,
+      issueCount: issues.length,
+      workInProgress: inProgress.length,
+      throughput: completed.length,
+      averageCycleTimeDays: undefined,
       averageLeadTimeDays,
-      velocityTrend:
-        sprintSuccessRate >= 80 ? 'improving' : sprintSuccessRate >= 60 ? 'stable' : 'declining',
-      flowEfficiency,
+      averageWipAgeDays,
+      storyPointsCoverage,
+      sprint,
+      confidence: storyPointsCoverage >= 80 ? 'high' : storyPointsCoverage >= 50 ? 'medium' : 'low',
       teamAtRisk,
     };
   }

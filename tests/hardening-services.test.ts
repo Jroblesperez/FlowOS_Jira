@@ -54,7 +54,12 @@ it('returns a partial snapshot when Jira data is partially unavailable', async (
   const jira: JiraClient = {
     getCurrentUserTenant: async () => 'tenant',
     searchIssues: async () => Promise.reject(new Error('Jira unavailable')),
-    countActiveSprints: async () => 2,
+    getBoard: async () => ({ id: 140, name: 'Pays Genius' }),
+    getActiveSprints: async () => [
+      { id: 1, name: 'Sprint 1', state: 'active' },
+      { id: 2, name: 'Sprint 2', state: 'active' },
+    ],
+    getDiagnostics: () => [],
   };
   const storage: ExecutiveStorage = {
     getConfiguration: async () => defaultExecutiveConfiguration,
@@ -88,7 +93,9 @@ it('discards a corrupted cache entry and refreshes it', async () => {
       searches += 1;
       return [];
     },
-    countActiveSprints: async () => 0,
+    getBoard: async () => ({ id: 140, name: 'Pays Genius' }),
+    getActiveSprints: async () => [],
+    getDiagnostics: () => [],
   };
   const storage: ExecutiveStorage = {
     getConfiguration: async () => defaultExecutiveConfiguration,

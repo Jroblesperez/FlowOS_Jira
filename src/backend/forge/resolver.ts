@@ -12,6 +12,13 @@ resolver.define('executive.snapshot', async (request: unknown) => {
   return snapshots.getOrCreateExecutiveSnapshot(Boolean(payload?.forceRefresh));
 });
 resolver.define('executive.configuration.get', async () => storage.getConfiguration());
+resolver.define('executive.diagnostics.get', async () => {
+  const snapshot = await storage.getLatestSnapshot();
+  return snapshot?.metadata;
+});
+resolver.define('executive.diagnostics.retry', async () =>
+  snapshots.getOrCreateExecutiveSnapshot(true),
+);
 resolver.define('executive.configuration.save', async (request: unknown) => {
   const payload = (request as { payload: ExecutiveConfiguration }).payload;
   await storage.saveConfiguration(payload);

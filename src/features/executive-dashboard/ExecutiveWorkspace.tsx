@@ -18,6 +18,7 @@ export const ExecutiveWorkspace = memo(function ExecutiveWorkspace() {
   const organization = useOrganizationHealth(snapshot);
   const delivery = useDeliveryHealth(snapshot);
   const { suppliers, attention } = useSupplierHealth(snapshot);
+  const attentionAvailability = snapshot?.metadata?.availability?.delivery;
   if (loading && !snapshot) return <LoadingState />;
   if (error && !snapshot) return <ErrorState message={error.message} onRetry={retry} />;
   if (!snapshot)
@@ -47,11 +48,17 @@ export const ExecutiveWorkspace = memo(function ExecutiveWorkspace() {
         <OrganizationHealthWidget health={organization} />
         <div className="attention-card">
           <p className="eyebrow">Needs attention</p>
-          <strong>{attention?.supplier ?? delivery?.teamAtRisk ?? 'No immediate risk'}</strong>
+          <strong>
+            {attentionAvailability?.status === 'source_error' || !delivery
+              ? 'Risk could not be evaluated'
+              : (attention?.supplier ?? delivery.teamAtRisk)}
+          </strong>
           <span>
             {attention
               ? `Supplier health ${attention.score}%`
-              : 'Execution is within configured thresholds.'}
+              : delivery
+                ? 'Operational evidence was evaluated for the pilot scope.'
+                : 'Insufficient data is available for a reliable assessment.'}
           </span>
         </div>
       </section>
@@ -59,7 +66,10 @@ export const ExecutiveWorkspace = memo(function ExecutiveWorkspace() {
       <SupplierHealthWidget suppliers={suppliers} />
       <div className="workspace-columns">
         <ExecutiveBriefWidget summary={snapshot.aiSummary} />
-        <ActionCenterWidget recommendations={snapshot.recommendations} />
+        <ActionCenterWidget
+          recommendations={snapshot.recommendations}
+          evaluated={Boolean(delivery)}
+        />
       </div>
       <footer className="snapshot-footer">
         Updated {new Date(snapshot.date).toLocaleString()} ·{' '}
