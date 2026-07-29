@@ -53,11 +53,13 @@ declare module '@forge/api' {
     };
   };
   export function route(strings: TemplateStringsArray, ...values: unknown[]): string;
-  export const storage: {
+  export default api;
+}
+declare module '@forge/kvs' {
+  export const kvs: {
     set<T>(key: string, value: T): Promise<void>;
     get<T>(key: string): Promise<T | undefined>;
   };
-  export default api;
 }
 declare module '@storybook/react' {
   export type Meta<T> = unknown;
