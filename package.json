@@ -15,8 +15,6 @@
     "@forge/api": "latest",
     "@forge/bridge": "latest",
     "@forge/resolver": "latest",
-    "@forge/react": "latest",
-    "@forge/ui-kit": "latest",
     "react": "latest",
     "react-dom": "latest",
     "zod": "latest"
