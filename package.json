@@ -4,7 +4,7 @@
   "private": true,
   "description": "Enterprise Agile Operating System for Jira Cloud built on Atlassian Forge.",
   "scripts": {
-    "build": "tsc -p tsconfig.json && vite build",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "test": "vitest run",
     "format": "prettier --check \"src/**/*.{ts,tsx,css}\" \"tests/**/*.ts\" \"*.{json,yml,ts,mjs}\" \".storybook/*.ts\"",
